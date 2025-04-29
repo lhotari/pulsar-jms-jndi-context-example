@@ -1,5 +1,8 @@
 package com.example;
 
+import java.io.File;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
@@ -24,7 +27,28 @@ public class App {
     public static void main(String[] args) throws Exception {
         String topic = "persistent://public/default/example-topic";
 
+        ClassLoader originalClassLoader = Thread.currentThread().getContextClassLoader();
 
+        File repoDir = new File(new File(System.getProperty("user.home")), ".m2/repository");
+        ClassLoader jndiContextClassLoader = new URLClassLoader(
+                new URL[]{
+                        new File(repoDir,
+                                "com/datastax/oss/pulsar-jms-all/6.0.4/pulsar-jms-all-6.0.4.jar").toURI().toURL(),
+                        new File(repoDir,
+                                "com/fasterxml/jackson/core/jackson-annotations/2.14.2/jackson-annotations-2.14.2"
+                                        + ".jar").toURI().toURL()
+                }, null) {
+
+            @Override
+            protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+                if (name.startsWith("javax.jms.") || name.startsWith("org.slf4j.")) {
+                    return originalClassLoader.loadClass(name);
+                }
+                return super.loadClass(name, resolve);
+            }
+        };
+
+        Thread.currentThread().setContextClassLoader(jndiContextClassLoader);
         // Configure JNDI properties
         Properties properties = new Properties();
         properties.setProperty(Context.INITIAL_CONTEXT_FACTORY, "com.datastax.oss.pulsar.jms.jndi.PulsarInitialContextFactory");
@@ -47,6 +71,8 @@ public class App {
 
         // Lookup the JMS connection factory
         ConnectionFactory factory = (ConnectionFactory) jndiContext.lookup("ConnectionFactory");
+
+        Thread.currentThread().setContextClassLoader(originalClassLoader);
 
         // Create a JMS context
         try (JMSContext context = factory.createContext()) {
