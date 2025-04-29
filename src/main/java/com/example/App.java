@@ -69,10 +69,11 @@ public class App {
         // Create the JNDI context
         Context jndiContext = new InitialContext(properties);
 
+        Thread.currentThread().setContextClassLoader(originalClassLoader);
+
         // Lookup the JMS connection factory
         ConnectionFactory factory = (ConnectionFactory) jndiContext.lookup("ConnectionFactory");
 
-        Thread.currentThread().setContextClassLoader(originalClassLoader);
 
         // Create a JMS context
         try (JMSContext context = factory.createContext()) {
