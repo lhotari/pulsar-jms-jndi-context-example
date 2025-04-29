@@ -1,5 +1,6 @@
 package com.example;
 
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import javax.jms.ConnectionFactory;
@@ -19,27 +20,42 @@ import javax.naming.InitialContext;
  * docker run --rm -it -p 8080:8080 -p 6650:6650 apachepulsar/pulsar:latest /pulsar/bin/pulsar standalone -nss -nfw
  */
 public class App {
+
     public static void main(String[] args) throws Exception {
         String topic = "persistent://public/default/example-topic";
 
+
+        // Configure JNDI properties
         Properties properties = new Properties();
         properties.setProperty(Context.INITIAL_CONTEXT_FACTORY, "com.datastax.oss.pulsar.jms.jndi.PulsarInitialContextFactory");
-        properties.setProperty(Context.PROVIDER_URL, "pulsar://localhost:6650");
-        properties.setProperty("webServiceUrl", "http://localhost:8080");
         properties.setProperty("autoCloseConnectionFactory", "true");
         properties.setProperty("jms.systemNamespace", "public/default");
+
+        // Set the service URL, webservice URL and authentication token so that they can be overridden by environment variables
+        Map<String, String> env = System.getenv();
+        properties.setProperty(Context.PROVIDER_URL, env.getOrDefault("PULSAR_SERVICE_URL", "pulsar://localhost:6650"));
+        properties.setProperty("webServiceUrl", env.getOrDefault("PULSAR_WEBSERVICE_URL", "http://localhost:8080"));
+        String authToken = env.get("PULSAR_AUTH_TOKEN");
+        if (authToken != null) {
+            // since pulsar-jms-all is used, the AuthenticationToken class is in the shaded package
+            properties.setProperty("authPlugin", "com.datastax.oss.pulsar.jms.shaded.org.apache.pulsar.client.impl.auth.AuthenticationToken");
+            properties.setProperty("authParams", authToken);
+        }
+
+        // Create the JNDI context
         Context jndiContext = new InitialContext(properties);
 
+        // Lookup the JMS connection factory
         ConnectionFactory factory = (ConnectionFactory) jndiContext.lookup("ConnectionFactory");
 
+        // Create a JMS context
         try (JMSContext context = factory.createContext()) {
             Queue queue = context.createQueue(topic);
 
             int numberOfMessages = 10;
-
             CountDownLatch latch = new CountDownLatch(numberOfMessages);
 
-            // Listen for messages...
+            // Receive messages with consumer and message listener
             JMSConsumer consumer = context.createConsumer(queue);
             consumer.setMessageListener(new MessageListener() {
                 @Override
@@ -54,6 +70,7 @@ public class App {
                 }
             });
 
+            // Send messages
             JMSProducer producer = context.createProducer();
             for (int i = 0; i < numberOfMessages; i++) {
                 String message = "Hello world! " + i;
