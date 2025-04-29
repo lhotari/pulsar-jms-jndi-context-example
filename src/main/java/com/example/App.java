@@ -38,7 +38,7 @@ public class App {
         String authToken = env.get("PULSAR_AUTH_TOKEN");
         if (authToken != null) {
             // since pulsar-jms-all is used, the AuthenticationToken class is in the shaded package
-            properties.setProperty("authPlugin", "com.datastax.oss.pulsar.jms.shaded.org.apache.pulsar.client.impl.auth.AuthenticationToken");
+            properties.setProperty("authPlugin", "org.apache.pulsar.client.impl.auth.AuthenticationToken");
             properties.setProperty("authParams", authToken);
         }
 
