@@ -35,6 +35,7 @@ public class App {
         Map<String, String> env = System.getenv();
         properties.setProperty(Context.PROVIDER_URL, env.getOrDefault("PULSAR_SERVICE_URL", "pulsar://localhost:6650"));
         properties.setProperty("webServiceUrl", env.getOrDefault("PULSAR_WEBSERVICE_URL", "http://localhost:8080"));
+        properties.setProperty("extraProperty", "extraValue");
         String authToken = env.get("PULSAR_AUTH_TOKEN");
         if (authToken != null) {
             // since pulsar-jms-all is used, the AuthenticationToken class is in the shaded package
